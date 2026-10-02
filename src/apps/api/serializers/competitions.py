@@ -465,6 +465,7 @@ class CompetitionSerializerSimple(serializers.ModelSerializer):
     owner_display_name = serializers.SerializerMethodField()
     participants_count = serializers.IntegerField(read_only=True)
     first_phase_start = serializers.DateTimeField(read_only=True)
+    tags = serializers.SerializerMethodField()
 
     class Meta:
         model = Competition
@@ -481,6 +482,7 @@ class CompetitionSerializerSimple(serializers.ModelSerializer):
             'logo_icon',
             'description',
             'competition_type',
+            'tags',
             'reward',
             'contact_email',
             'report',
@@ -491,6 +493,11 @@ class CompetitionSerializerSimple(serializers.ModelSerializer):
     def get_created_by(self, obj):
         # Get the user's display name if not None, otherwise return username
         return obj.created_by.display_name if obj.created_by.display_name else obj.created_by.username
+
+    def get_tags(self, obj):
+        if not hasattr(obj, 'prefetched_tags_cached'):
+            obj.prefetched_tags_cached = [{'name': tag.name, 'category': tag.category.name} for tag in obj.tags.all()]
+        return obj.prefetched_tags_cached
 
     def get_owner_display_name(self, obj):
         # Get the user's display name if not None, otherwise return username

@@ -46,7 +46,7 @@ class CompetitionViewSet(ModelViewSet):
 
     def get_queryset(self):
 
-        qs = super().get_queryset()
+        qs = super().get_queryset().prefetch_related('tags__category')
 
         # filter by competition_type first, 'competition' by default
         competition_type = self.request.query_params.get('type', Competition.COMPETITION)
@@ -619,7 +619,7 @@ class CompetitionViewSet(ModelViewSet):
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
-        qs = Competition.objects.filter(published=True)
+        qs = Competition.objects.filter(published=True).prefetch_related('tags__category')
 
         # Filter by title (search)
         if search:
