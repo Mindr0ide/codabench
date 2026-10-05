@@ -1,7 +1,7 @@
 <dashboard>
     <div class="ui container fluid dashboard-container" style="max-width: 1400px; padding: 0 20px;">
         <div class="ui stackable grid">
-            <div class="eleven wide column">
+            <div class="sixteen wide column">
                 <h2 class="ui header">
                     <i class="chart pie icon"></i>
                     <div class="content">
@@ -9,11 +9,6 @@
                         <div class="sub header">Analyze trends, organizers, and domains across Codabench</div>
                     </div>
                 </h2>
-            </div>
-            <div class="five wide right aligned column">
-                <div class="ui mini label">
-                    <i class="database icon"></i> Live API Data ({ allCompetitions.length })
-                </div>
             </div>
         </div>
 
@@ -194,6 +189,7 @@
             categoriesPresent: 0
         };
 
+        // Filter and sort state
         self.state = {
             search: "",
             mode: "or",
@@ -210,6 +206,7 @@
             self.fetchData();
         });
 
+        // Recursively fetch all public competitions handling API pagination
         self.fetchData = function () {
             self.loading = true;
             self.update();
@@ -260,6 +257,7 @@
             }, 50);
         };
 
+        // Parse raw API results, extracting categories and globally unique tags
         self.classifyCompetitions = function (list) {
             self.globalCategoryTags = {};
             
@@ -432,6 +430,7 @@
             }
         }
 
+        // Apply text search and tag filters, then rebuild category counts and pagination
         self.applyFilters = function () {
             var s = self.state.search;
             self.filteredCompetitions = self.allCompetitions.filter(function (c) {
@@ -513,6 +512,7 @@
             return entries.slice(0, limit);
         }
 
+        // Render charts dynamically using a modulo rule for chart types (Bar/Doughnut)
         self.initOrUpdateCharts = function () {
             var rows = self.filteredCompetitions;
             
@@ -651,6 +651,7 @@
             }
         };
 
+        // Export currently filtered competitions to CSV
         self.downloadCSV = function () {
             var rows = self.filteredCompetitions;
             var esc = function (v) { return '"' + String(v || '').replace(/"/g, '""') + '"'; };
