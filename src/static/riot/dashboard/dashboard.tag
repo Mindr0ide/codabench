@@ -36,6 +36,16 @@
                         </div>
                     </div>
 
+                    <!-- Admin Visibility Option -->
+                    <div class="ui segment" if="{ isAdmin }">
+                        <h5 class="ui header" style="margin-bottom: 6px;">Visibility</h5>
+                        <div class="ui mini fluid buttons">
+                            <button class="ui button { active: state.visibility === 'public', blue: state.visibility === 'public' }" onclick="{ setVisibility.bind(this, 'public') }">Public</button>
+                            <button class="ui button { active: state.visibility === 'private', blue: state.visibility === 'private' }" onclick="{ setVisibility.bind(this, 'private') }">Private</button>
+                            <button class="ui button { active: state.visibility === 'all', blue: state.visibility === 'all' }" onclick="{ setVisibility.bind(this, 'all') }">All</button>
+                        </div>
+                    </div>
+
                     <!-- Dynamic Categories -->
                     <div class="ui segment" each="{ cat in categoryFilters }">
                         <h5 class="ui header">{ cat.name }</h5>
@@ -168,6 +178,7 @@
 
     <script>
         var self = this;
+        self.isAdmin = typeof CODALAB !== "undefined" && CODALAB.state && CODALAB.state.user && (CODALAB.state.user.is_superuser || CODALAB.state.user.is_staff);
 
         self.loading = true;
         self.dataSource = "api";
@@ -193,6 +204,7 @@
         self.state = {
             search: "",
             mode: "or",
+            visibility: "public",
             selectedTags: {},
             sortKey: "id",
             sortDir: 1
@@ -206,13 +218,18 @@
             self.fetchData();
         });
 
-        // Recursively fetch all public competitions handling API pagination
+        // Recursively fetch competitions using the main endpoint with visibility
         self.fetchData = function () {
             self.loading = true;
             self.update();
 
             var allResults = [];
-            var apiUrl = (typeof URLS !== "undefined" && URLS.API) ? URLS.API + "competitions/public/?page_size=1000" : "/api/competitions/public/?page_size=1000";
+            var apiUrl = (typeof URLS !== "undefined" && URLS.API) ? URLS.API + "competitions/?page_size=1000" : "/api/competitions/?page_size=1000";
+            if (self.isAdmin) {
+                apiUrl += "&visibility=all";
+            } else {
+                apiUrl += "&visibility=public";
+            }
 
             function fetchPage(url) {
                 $.ajax({
@@ -268,6 +285,7 @@
                     title: item.title,
                     organizer: item.created_by || item.owner_display_name || "organizer",
                     url: compUrl,
+                    published: item.published,
                     tagsByCategory: {}
                 };
 
@@ -354,6 +372,15 @@
             setTimeout(self.initOrUpdateCharts, 50);
         };
 
+        
+        self.setVisibility = function(val) {
+            self.state.visibility = val;
+            self.currentPage = 1;
+            self.applyFilters();
+            self.update();
+            setTimeout(self.initOrUpdateCharts, 50);
+        };
+
         self.setModeAnd = function () {
             self.state.mode = 'and';
             self.currentPage = 1;
@@ -434,6 +461,10 @@
         self.applyFilters = function () {
             var s = self.state.search;
             self.filteredCompetitions = self.allCompetitions.filter(function (c) {
+                if (self.isAdmin) {
+                    if (self.state.visibility === 'public' && !c.published) return false;
+                    if (self.state.visibility === 'private' && c.published) return false;
+                }
                 if (s && c.title.toLowerCase().indexOf(s) === -1 && c.organizer.toLowerCase().indexOf(s) === -1) {
                     return false;
                 }

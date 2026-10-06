@@ -48,6 +48,19 @@ class CompetitionViewSet(ModelViewSet):
 
         qs = super().get_queryset().prefetch_related('tags__category')
 
+        # Dashboard visibility filter
+        visibility = self.request.query_params.get('visibility', None)
+        if visibility:
+            # If the visibility is not 'public' and the user is not a staff or superuser, raise a permission denied error
+            if visibility != 'public' and not (self.request.user.is_authenticated and (self.request.user.is_staff or self.request.user.is_superuser)):
+                raise PermissionDenied("You cannot view private competitions if you are not a superuser.")
+            
+            if visibility == 'public':
+                qs = qs.filter(published=True)
+            elif visibility == 'private':
+                qs = qs.filter(published=False)
+            # else visibility == 'all' and no filter is applied
+
         # filter by competition_type first, 'competition' by default
         competition_type = self.request.query_params.get('type', Competition.COMPETITION)
         if competition_type != 'any' and self.detail is False:
@@ -116,7 +129,7 @@ class CompetitionViewSet(ModelViewSet):
             # not called from i'm participating in tab
             # not called from search bar
             # not called with a valid secret key
-            if (not mine) and (not participating_in) and (not secret_key) and (not search_query):
+            if (not mine) and (not participating_in) and (not secret_key) and (not search_query) and (not visibility):
                 # If authenticated user is not super user
                 if not self.request.user.is_superuser:
                     # Return the following ---
