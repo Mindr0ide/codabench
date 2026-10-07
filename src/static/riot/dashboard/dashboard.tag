@@ -50,6 +50,23 @@
                         </div>
                     </div>
 
+                    <!-- Date Filter -->
+                    <div class="ui segment">
+                        <h5 class="ui header" style="margin-bottom: 8px;">Creation Date</h5>
+                        <div class="ui calendar" ref="start_calendar" style="margin-bottom: 6px;">
+                            <div class="ui fluid input left icon">
+                                <i class="calendar icon"></i>
+                                <input type="text" placeholder="Start Date">
+                            </div>
+                        </div>
+                        <div class="ui calendar" ref="end_calendar">
+                            <div class="ui fluid input left icon">
+                                <i class="calendar icon"></i>
+                                <input type="text" placeholder="End Date">
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Dynamic Categories -->
                     <div class="ui segment accordion category-accordion" each="{ cat in categoryFilters }">
                         <h5 class="title { state.openCats[cat.name] !== false ? 'active' : '' } ui header" style="margin-bottom: 0;">
@@ -112,11 +129,19 @@
                             </div>
                         </div>
                     </div>
-                    <div class="column" each="{ chart in chartCards }">
+                    <div class="column">
+                        <div class="ui segment chart-card">
+                            <h4 class="ui header">Most Popular Competitions</h4>
+                            <div class="canvas-wrap">
+                                <canvas ref="chComps"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column" each="{ chart, idx in chartCards }">
                         <div class="ui segment chart-card">
                             <h4 class="ui header">By { chart.catName }</h4>
                             <div class="canvas-wrap">
-                                <canvas id="{ chart.id }"></canvas>
+                                <canvas ref="dynamicCharts"></canvas>
                             </div>
                         </div>
                     </div>
@@ -219,10 +244,13 @@
             selectedTags: {},
             openCats: {},
             sortKey: "id",
-            sortDir: 1
+            sortDir: 1,
+            startDate: null,
+            endDate: null
         };
 
         self.charts = {};
+        self.search_timer = null;
 
         var PALETTE = ["#2185d0", "#00b5ad", "#21ba45", "#fbbd08", "#f2711c", "#db2828", "#a333c8", "#e03997", "#767676"];
 
@@ -230,7 +258,7 @@
             self.fetchData();
         });
 
-        // Recursively fetch competitions using the main endpoint with visibility
+        // Fetch all competitions using recursive pagination to enable client-side filtering
         self.fetchData = function () {
             self.loading = true;
             self.update();
@@ -244,10 +272,8 @@
             }
 
             function fetchPage(url) {
-                $.ajax({
-                    url: url,
-                    type: "GET",
-                    success: function (resp) {
+                CODALAB.api.request('GET', url)
+                    .done(function (resp) {
                         var results = (resp && resp.results) ? resp.results : [];
                         allResults = allResults.concat(results);
                         
@@ -260,6 +286,7 @@
                             self.allCompetitions = self.classifyCompetitions(allResults);
                             self.dataSource = "api";
                             self.onDataLoaded();
+                            // Init Semantic UI accordion and bind state to preserve open/close across Riot updates
                             setTimeout(function() {
                                 $('.category-accordion', self.root).accordion({
                                     exclusive: false,
@@ -274,8 +301,9 @@
                                 });
                             }, 50);
                         }
-                    },
-                    error: function () {
+                    })
+                    .fail(function () {
+                        if (typeof toastr !== "undefined") toastr.error("Failed to load competitions data");
                         if (allResults.length > 0) {
                             self.allCompetitions = self.classifyCompetitions(allResults);
                         } else {
@@ -283,8 +311,7 @@
                         }
                         self.dataSource = "api";
                         self.onDataLoaded();
-                    }
-                });
+                    });
             }
 
             fetchPage(apiUrl);
@@ -295,11 +322,12 @@
             self.applyFilters();
             self.update();
             setTimeout(function () {
+                self.initCalendars();
                 self.initOrUpdateCharts();
             }, 50);
         };
 
-        // Parse raw API results, extracting categories and globally unique tags
+        // Extract categories and tags from raw API response to build filter menus
         self.classifyCompetitions = function (list) {
             self.globalCategoryTags = {};
             
@@ -314,6 +342,7 @@
                     competition_type: item.competition_type || "competition",
                     participants_count: item.participants_count || 0,
                     submissions_count: item.submissions_count || 0,
+                    created_when: item.created_when,
                     tagsByCategory: {}
                 };
 
@@ -335,6 +364,7 @@
             self.state.selectedTags = {};
             self.chartCards = [];
             
+            // Re-bind charts, using refs array for dynamically rendered canvas elements
             self.availableCategories.forEach(function(cat, idx) {
                 self.state.selectedTags[cat] = {};
                 self.chartCards.push({
@@ -373,23 +403,72 @@
             setTimeout(self.initOrUpdateCharts, 50);
         };
 
-                self.resetFilters = function () {
+        self.resetFilters = function () {
             self.state.search = "";
             self.state.mode = "or";
             self.state.selectedTags = {};
             if (self.refs.searchInput) self.refs.searchInput.value = "";
+            if (self.refs.start_calendar) $(self.refs.start_calendar).calendar('clear');
+            if (self.refs.end_calendar) $(self.refs.end_calendar).calendar('clear');
+            self.state.startDate = null;
+            self.state.endDate = null;
             self.currentPage = 1;
             self.applyFilters();
             self.update();
             setTimeout(self.initOrUpdateCharts, 50);
         };
 
+        self.initCalendars = function () {
+            var general_calendar_options = {
+                type: 'date',
+                formatter: {
+                   date: function (date, settings) {
+                       if (!date) return '';
+                       var d = date.getDate(), m = date.getMonth() + 1, y = date.getFullYear();
+                       return y + '-' + (m<=9 ? '0' + m : m) + '-' + (d<=9 ? '0' + d : d);
+                   }
+                }
+            };
+
+            var start_options = Object.assign({}, general_calendar_options, {
+                endCalendar: $(self.refs.end_calendar),
+                onChange: function(date, text) {
+                    self.state.startDate = date ? new Date(date) : null;
+                    self.currentPage = 1;
+                    self.applyFilters();
+                    self.update();
+                    setTimeout(self.initOrUpdateCharts, 50);
+                }
+            });
+
+            var end_options = Object.assign({}, general_calendar_options, {
+                startCalendar: $(self.refs.start_calendar),
+                onChange: function(date, text) {
+                    self.state.endDate = date ? new Date(date) : null;
+                    self.currentPage = 1;
+                    self.applyFilters();
+                    self.update();
+                    setTimeout(self.initOrUpdateCharts, 50);
+                }
+            });
+
+            $(self.refs.start_calendar).calendar(start_options);
+            $(self.refs.end_calendar).calendar(end_options);
+        };
+
         self.updateSearch = function (e) {
             self.state.search = e.target.value.toLowerCase();
-            self.currentPage = 1;
-            self.applyFilters();
-            self.update();
-            setTimeout(self.initOrUpdateCharts, 50);
+            
+            if (self.search_timer) {
+                clearTimeout(self.search_timer);
+            }
+            
+            self.search_timer = setTimeout(function() {
+                self.currentPage = 1;
+                self.applyFilters();
+                self.update();
+                setTimeout(self.initOrUpdateCharts, 50);
+            }, 400); // Debounce to prevent UI freeze while typing
         };
 
         self.updateSearchField = function (e) {
@@ -408,7 +487,6 @@
             setTimeout(self.initOrUpdateCharts, 50);
         };
 
-        
         self.setVisibility = function(val) {
             self.state.visibility = val;
             self.currentPage = 1;
@@ -464,6 +542,7 @@
             }
         };
 
+        // Check if competition tags match selected filters (AND/OR mode)
         function tagMatch(compTagsByCat, selectedTagsByCat) {
             var hasAnySelection = false;
             var cats = Object.keys(selectedTagsByCat);
@@ -501,7 +580,7 @@
             }
         }
 
-        // Apply text search and tag filters, then rebuild category counts and pagination
+        // Main filter pipeline: Text search -> Visibility -> Tag matching -> Rebuild UI counts
         self.applyFilters = function () {
             var s = self.state.search;
             self.filteredCompetitions = self.allCompetitions.filter(function (c) {
@@ -511,6 +590,20 @@
                 }
                 if (self.state.type !== 'all' && c.competition_type !== self.state.type) {
                     return false;
+                }
+                
+                if (self.state.startDate || self.state.endDate) {
+                    var compDate = c.created_when ? new Date(c.created_when) : null;
+                    if (!compDate) return false;
+                    
+                    if (self.state.startDate && compDate < self.state.startDate) return false;
+                    
+                    // We must include the entire end date up to midnight
+                    if (self.state.endDate) {
+                        var endLimit = new Date(self.state.endDate);
+                        endLimit.setHours(23, 59, 59, 999);
+                        if (compDate > endLimit) return false;
+                    }
                 }
                 if (s) {
                     var matchTitle = c.title.toLowerCase().indexOf(s) !== -1;
@@ -536,9 +629,14 @@
             var orgs = {};
             self.categoryTagsCounts = {};
             var totalTags = 0;
+            var totalParticipants = 0;
+            var totalSubmissions = 0;
             
             self.filteredCompetitions.forEach(function (c) {
                 orgs[c.organizer] = true;
+                totalParticipants += (c.participants_count || 0);
+                totalSubmissions += (c.submissions_count || 0);
+                
                 Object.keys(c.tagsByCategory).forEach(function(cat) {
                     if (!self.categoryTagsCounts[cat]) self.categoryTagsCounts[cat] = {};
                     c.tagsByCategory[cat].forEach(function(t) {
@@ -550,6 +648,8 @@
             
             self.kpis.distinctOrganizers = Object.keys(orgs).length;
             self.kpis.tagsAssigned = totalTags;
+            self.kpis.participants = totalParticipants;
+            self.kpis.submissions = totalSubmissions;
 
             self.categoryFilters = [];
             self.availableCategories.forEach(function(cat) {
@@ -609,13 +709,22 @@
             return entries.slice(0, limit);
         }
 
-        // Render charts dynamically using a modulo rule for chart types (Bar/Doughnut)
+        // Cycle through Bar, Doughnut, and Vertical Bar charts for tag categories
         self.initOrUpdateCharts = function () {
             var rows = self.filteredCompetitions;
             
             var oPairs = countOrgs(rows, 10);
             self.renderHorizontalBar("chOrgs", oPairs, "#21ba45");
 
+            var cPairs = rows.map(function(c) { 
+                var shortTitle = c.title.length > 25 ? c.title.substring(0, 25) + '...' : c.title;
+                return [shortTitle, c.participants_count || 0]; 
+            });
+            cPairs.sort(function(a, b) { return b[1] - a[1]; });
+            cPairs = cPairs.slice(0, 10);
+            self.renderHorizontalBar("chComps", cPairs, "#fbbd08");
+
+            // Re-bind charts, using refs array for dynamically rendered canvas elements
             self.availableCategories.forEach(function(cat, idx) {
                 var counts = self.categoryTagsCounts[cat] || {};
                 var pairs = Object.keys(counts).map(function(k) { return [k, counts[k]]; });
@@ -623,16 +732,24 @@
                 pairs = pairs.slice(0, 15);
                 
                 var canvasId = "chart_cat_" + idx;
-                var el = document.getElementById(canvasId);
+                
+                var el = null;
+                if (self.refs.dynamicCharts) {
+                    if (Array.isArray(self.refs.dynamicCharts)) {
+                        el = self.refs.dynamicCharts[idx];
+                    } else if (idx === 0) {
+                        el = self.refs.dynamicCharts;
+                    }
+                }
                 var color = PALETTE[idx % PALETTE.length];
                 
                 if (el) {
                     if (idx % 3 === 0) {
-                        self.renderHorizontalBarId(canvasId, pairs, color);
+                        self.renderHorizontalBarId(canvasId, pairs, color, el);
                     } else if (idx % 3 === 1) {
-                        self.renderDoughnutId(canvasId, pairs);
+                        self.renderDoughnutId(canvasId, pairs, el);
                     } else {
-                        self.renderVerticalBarId(canvasId, pairs, color);
+                        self.renderVerticalBarId(canvasId, pairs, color, el);
                     }
                 }
             });
@@ -678,8 +795,8 @@
             }
         };
 
-        self.renderDoughnutId = function (id, pairs) {
-            var el = document.getElementById(id);
+        self.renderDoughnutId = function (id, pairs, elementObj) {
+            var el = elementObj || self.refs[id];
             if (!el) return;
             var labels = pairs.map(function (p) { return p[0]; });
             var dataVals = pairs.map(function (p) { return p[1]; });
@@ -714,8 +831,8 @@
             }
         };
 
-        self.renderVerticalBarId = function (id, pairs, color) {
-            var el = document.getElementById(id);
+        self.renderVerticalBarId = function (id, pairs, color, elementObj) {
+            var el = elementObj || self.refs[id];
             if (!el) return;
             var labels = pairs.map(function (p) { return p[0]; });
             var dataVals = pairs.map(function (p) { return p[1]; });
@@ -776,7 +893,7 @@
 
     </script>
 
-    <style type="text/stylus">
+    <style type="text/stylus" scoped>
         .filter-panel
             background #fff
             border-radius 4px
