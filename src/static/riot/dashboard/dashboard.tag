@@ -24,9 +24,13 @@
                     <!-- Search & Match Mode -->
                     <div class="ui segment">
                         <h4 class="ui header" style="margin-bottom: 8px;">Search</h4>
-                        <div class="ui fluid small icon input">
-                            <input type="text" placeholder="Title or organizer..." ref="searchInput" oninput="{ updateSearch }" value="{ state.search }">
-                            <i class="search icon"></i>
+                        <div class="ui fluid small action input">
+                            <input type="text" placeholder="Search..." ref="searchInput" oninput="{ updateSearch }" value="{ state.search }">
+                            <select class="ui compact dropdown" onchange="{ updateSearchField }" style="border-top-left-radius: 0; border-bottom-left-radius: 0;">
+                                <option value="both" selected="{ state.searchField === 'both' }">All</option>
+                                <option value="title" selected="{ state.searchField === 'title' }">Title</option>
+                                <option value="organizer" selected="{ state.searchField === 'organizer' }">Organizer</option>
+                            </select>
                         </div>
 
                         <h5 class="ui header" style="margin-top: 12px; margin-bottom: 6px;">Tag Match Mode</h5>
@@ -47,12 +51,17 @@
                     </div>
 
                     <!-- Dynamic Categories -->
-                    <div class="ui segment" each="{ cat in categoryFilters }">
-                        <h5 class="ui header">{ cat.name }</h5>
-                        <div class="filter-scroll-list">
-                            <div class="ui checkbox filter-item" each="{ tag in cat.tags }">
-                                <input type="checkbox" checked="{ tag.checked }" data-cat="{ cat.name }" data-tag="{ tag.name }" onchange="{ toggleTagHandler }">
-                                <label>{ tag.name } <span class="filter-count">({ tag.count })</span></label>
+                    <div class="ui segment accordion category-accordion" each="{ cat in categoryFilters }">
+                        <h5 class="title { state.openCats[cat.name] !== false ? 'active' : '' } ui header" style="margin-bottom: 0;">
+                            { cat.name }
+                            <i class="dropdown icon" style="float: right;"></i>
+                        </h5>
+                        <div class="content { state.openCats[cat.name] !== false ? 'active' : '' }" data-catname="{ cat.name }" style="margin-top: 10px;">
+                            <div class="filter-scroll-list">
+                                <div class="ui checkbox filter-item" each="{ tag in cat.tags }">
+                                    <input type="checkbox" checked="{ tag.checked }" data-cat="{ cat.name }" data-tag="{ tag.name }" onchange="{ toggleTagHandler }">
+                                    <label>{ tag.name } <span class="filter-count">({ tag.count })</span></label>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -82,14 +91,14 @@
                     </div>
                     <div class="column center aligned">
                         <div class="ui mini statistic">
-                            <div class="value">{ kpis.tagsAssigned }</div>
-                            <div class="label">Tags Assigned</div>
+                            <div class="value">{ kpis.participants }</div>
+                            <div class="label">Participants</div>
                         </div>
                     </div>
                     <div class="column center aligned">
                         <div class="ui mini statistic">
-                            <div class="value">{ kpis.categoriesPresent }</div>
-                            <div class="label">Categories</div>
+                            <div class="value">{ kpis.submissions }</div>
+                            <div class="label">Submissions</div>
                         </div>
                     </div>
                 </div>
@@ -196,16 +205,19 @@
         
         self.kpis = {
             distinctOrganizers: 0,
-            tagsAssigned: 0,
-            categoriesPresent: 0
+            participants: 0,
+            submissions: 0
         };
 
         // Filter and sort state
         self.state = {
             search: "",
+            searchField: "both",
             mode: "or",
             visibility: "public",
+            type: "all",
             selectedTags: {},
+            openCats: {},
             sortKey: "id",
             sortDir: 1
         };
@@ -248,6 +260,19 @@
                             self.allCompetitions = self.classifyCompetitions(allResults);
                             self.dataSource = "api";
                             self.onDataLoaded();
+                            setTimeout(function() {
+                                $('.category-accordion', self.root).accordion({
+                                    exclusive: false,
+                                    onOpen: function() {
+                                        var catName = $(this).data('catname');
+                                        if (catName) self.state.openCats[catName] = true;
+                                    },
+                                    onClose: function() {
+                                        var catName = $(this).data('catname');
+                                        if (catName) self.state.openCats[catName] = false;
+                                    }
+                                });
+                            }, 50);
                         }
                     },
                     error: function () {
@@ -286,6 +311,9 @@
                     organizer: item.created_by || item.owner_display_name || "organizer",
                     url: compUrl,
                     published: item.published,
+                    competition_type: item.competition_type || "competition",
+                    participants_count: item.participants_count || 0,
+                    submissions_count: item.submissions_count || 0,
                     tagsByCategory: {}
                 };
 
@@ -364,6 +392,14 @@
             setTimeout(self.initOrUpdateCharts, 50);
         };
 
+        self.updateSearchField = function (e) {
+            self.state.searchField = e.target.value;
+            self.currentPage = 1;
+            self.applyFilters();
+            self.update();
+            setTimeout(self.initOrUpdateCharts, 50);
+        };
+
         self.setModeOr = function () {
             self.state.mode = 'or';
             self.currentPage = 1;
@@ -375,6 +411,14 @@
         
         self.setVisibility = function(val) {
             self.state.visibility = val;
+            self.currentPage = 1;
+            self.applyFilters();
+            self.update();
+            setTimeout(self.initOrUpdateCharts, 50);
+        };
+
+        self.setType = function(val) {
+            self.state.type = val;
             self.currentPage = 1;
             self.applyFilters();
             self.update();
@@ -465,8 +509,16 @@
                     if (self.state.visibility === 'public' && !c.published) return false;
                     if (self.state.visibility === 'private' && c.published) return false;
                 }
-                if (s && c.title.toLowerCase().indexOf(s) === -1 && c.organizer.toLowerCase().indexOf(s) === -1) {
+                if (self.state.type !== 'all' && c.competition_type !== self.state.type) {
                     return false;
+                }
+                if (s) {
+                    var matchTitle = c.title.toLowerCase().indexOf(s) !== -1;
+                    var matchOrg = c.organizer.toLowerCase().indexOf(s) !== -1;
+                    
+                    if (self.state.searchField === 'title' && !matchTitle) return false;
+                    if (self.state.searchField === 'organizer' && !matchOrg) return false;
+                    if (self.state.searchField === 'both' && !matchTitle && !matchOrg) return false;
                 }
                 return tagMatch(c.tagsByCategory, self.state.selectedTags);
             });
@@ -513,6 +565,7 @@
                 });
                 
                 tagsArr.sort(function (a, b) { 
+                    if (a.checked !== b.checked) return a.checked ? -1 : 1;
                     if (b.count !== a.count) return b.count - a.count; 
                     return a.name.localeCompare(b.name);
                 });
@@ -526,6 +579,19 @@
             self.totalPages = Math.max(1, Math.ceil(self.filteredCompetitions.length / self.pageSize));
             self.currentPage = Math.min(self.currentPage, self.totalPages);
             self.updatePagination();
+            setTimeout(function() {
+                $('.category-accordion', self.root).accordion({
+                    exclusive: false,
+                    onOpen: function() {
+                        var catName = $(this).data('catname');
+                        if (catName) self.state.openCats[catName] = true;
+                    },
+                    onClose: function() {
+                        var catName = $(this).data('catname');
+                        if (catName) self.state.openCats[catName] = false;
+                    }
+                });
+            }, 50);
         };
 
         self.updatePagination = function () {
