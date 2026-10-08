@@ -20,14 +20,14 @@ from rest_framework.renderers import JSONRenderer
 from rest_framework_csv.renderers import CSVRenderer
 from api.pagination import DynamicChoicePagination, LargePagination
 from api.renderers import ZipRenderer
-from rest_framework.viewsets import ModelViewSet
-from api.serializers.competitions import CompetitionSerializerSimple, PhaseSerializer, \
+from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
+from api.serializers.competitions import TagSerializer, CompetitionSerializerSimple, PhaseSerializer, \
     CompetitionCreationTaskStatusSerializer, CompetitionDetailSerializer, CompetitionParticipantSerializer, \
     FrontPageCompetitionsSerializer, PhaseResultsSerializer, CompetitionUpdateSerializer, CompetitionCreateSerializer
 from api.serializers.leaderboards import LeaderboardPhaseSerializer, LeaderboardSerializer
 from competitions.emails import send_participation_requested_emails, send_participation_accepted_emails, \
     send_participation_denied_emails, send_direct_participant_email
-from competitions.models import Competition, Phase, CompetitionCreationTaskStatus, CompetitionParticipant, Submission
+from competitions.models import Tag, TagCategory, Competition, Phase, CompetitionCreationTaskStatus, CompetitionParticipant, Submission
 from datasets.models import Data
 from competitions.tasks import batch_send_email, manual_migration, create_competition_dump
 from competitions.utils import get_popular_competitions, get_recent_competitions
@@ -720,6 +720,11 @@ class CompetitionViewSet(ModelViewSet):
             if new_tasks:
                 self.run_new_task_submissions(instance.phases.get(pk=phase_id), new_tasks)
 
+
+class TagViewSet(ReadOnlyModelViewSet):
+    queryset = Tag.objects.all().select_related('category')
+    serializer_class = TagSerializer
+    pagination_class = None
 
 class PhaseViewSet(ModelViewSet):
     serializer_class = PhaseSerializer

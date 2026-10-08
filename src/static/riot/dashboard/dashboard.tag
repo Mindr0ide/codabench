@@ -20,192 +20,14 @@
 
         <div class="ui stackable grid" show="{ !loading }">
             <div class="four wide column">
-                <div class="ui segments filter-panel">
-                    <!-- Search & Match Mode -->
-                    <div class="ui segment">
-                        <h4 class="ui header" style="margin-bottom: 8px;">Search</h4>
-                        <div class="ui fluid small action input">
-                            <input type="text" placeholder="Search..." ref="searchInput" oninput="{ updateSearch }" value="{ state.search }">
-                            <select class="ui compact dropdown" onchange="{ updateSearchField }" style="border-top-left-radius: 0; border-bottom-left-radius: 0;">
-                                <option value="both" selected="{ state.searchField === 'both' }">All</option>
-                                <option value="title" selected="{ state.searchField === 'title' }">Title</option>
-                                <option value="organizer" selected="{ state.searchField === 'organizer' }">Organizer</option>
-                            </select>
-                        </div>
-
-                        <h5 class="ui header" style="margin-top: 12px; margin-bottom: 6px;">Tag Match Mode</h5>
-                        <div class="ui mini fluid two buttons">
-                            <button class="ui button { active: state.mode === 'or', blue: state.mode === 'or' }" onclick="{ setModeOr }">Any (OR)</button>
-                            <button class="ui button { active: state.mode === 'and', blue: state.mode === 'and' }" onclick="{ setModeAnd }">All (AND)</button>
-                        </div>
-                    </div>
-
-                    <!-- Admin Visibility Option -->
-                    <div class="ui segment" if="{ isAdmin }">
-                        <h5 class="ui header" style="margin-bottom: 6px;">Visibility</h5>
-                        <div class="ui mini fluid buttons">
-                            <button class="ui button { active: state.visibility === 'public', blue: state.visibility === 'public' }" onclick="{ setVisibility.bind(this, 'public') }">Public</button>
-                            <button class="ui button { active: state.visibility === 'private', blue: state.visibility === 'private' }" onclick="{ setVisibility.bind(this, 'private') }">Private</button>
-                            <button class="ui button { active: state.visibility === 'all', blue: state.visibility === 'all' }" onclick="{ setVisibility.bind(this, 'all') }">All</button>
-                        </div>
-                    </div>
-
-                    <!-- Date Filter -->
-                    <div class="ui segment">
-                        <h5 class="ui header" style="margin-bottom: 8px;">Creation Date</h5>
-                        <div class="ui calendar" ref="start_calendar" style="margin-bottom: 6px;">
-                            <div class="ui fluid input left icon">
-                                <i class="calendar icon"></i>
-                                <input type="text" placeholder="Start Date">
-                            </div>
-                        </div>
-                        <div class="ui calendar" ref="end_calendar">
-                            <div class="ui fluid input left icon">
-                                <i class="calendar icon"></i>
-                                <input type="text" placeholder="End Date">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Dynamic Categories -->
-                    <div class="ui segment accordion category-accordion" each="{ cat in categoryFilters }">
-                        <h5 class="title { state.openCats[cat.name] !== false ? 'active' : '' } ui header" style="margin-bottom: 0;">
-                            { cat.name }
-                            <i class="dropdown icon" style="float: right;"></i>
-                        </h5>
-                        <div class="content { state.openCats[cat.name] !== false ? 'active' : '' }" data-catname="{ cat.name }" style="margin-top: 10px;">
-                            <div class="filter-scroll-list">
-                                <div class="ui checkbox filter-item" each="{ tag in cat.tags }">
-                                    <input type="checkbox" checked="{ tag.checked }" data-cat="{ cat.name }" data-tag="{ tag.name }" onchange="{ toggleTagHandler }">
-                                    <label>{ tag.name } <span class="filter-count">({ tag.count })</span></label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Reset Filters Button -->
-                    <div class="ui secondary segment">
-                        <button class="ui fluid basic compact button" onclick="{ resetFilters }">
-                            <i class="undo icon"></i> Reset all filters
-                        </button>
-                    </div>
-                </div>
+                <dashboard-filters p="{ this }"></dashboard-filters>
             </div>
 
             <div class="twelve wide column">
-                <div class="ui four column grid kpi-stats">
-                    <div class="column center aligned">
-                        <div class="ui mini statistic">
-                            <div class="value">{ filteredCompetitions.length }</div>
-                            <div class="label">Competitions</div>
-                        </div>
-                    </div>
-                    <div class="column center aligned">
-                        <div class="ui mini statistic">
-                            <div class="value">{ kpis.distinctOrganizers }</div>
-                            <div class="label">Organizers</div>
-                        </div>
-                    </div>
-                    <div class="column center aligned">
-                        <div class="ui mini statistic">
-                            <div class="value">{ kpis.participants }</div>
-                            <div class="label">Participants</div>
-                        </div>
-                    </div>
-                    <div class="column center aligned">
-                        <div class="ui mini statistic">
-                            <div class="value">{ kpis.submissions }</div>
-                            <div class="label">Submissions</div>
-                        </div>
-                    </div>
-                </div>
+                <dashboard-charts p="{ this }"></dashboard-charts>
+                
 
-                <div class="ui stackable two column grid">
-                    <div class="column">
-                        <div class="ui segment chart-card">
-                            <h4 class="ui header">Top Organizers</h4>
-                            <div class="canvas-wrap">
-                                <canvas ref="chOrgs"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="column">
-                        <div class="ui segment chart-card">
-                            <h4 class="ui header">Most Popular Competitions</h4>
-                            <div class="canvas-wrap">
-                                <canvas ref="chComps"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="column" each="{ chart, idx in chartCards }">
-                        <div class="ui segment chart-card">
-                            <h4 class="ui header">By { chart.catName }</h4>
-                            <div class="canvas-wrap">
-                                <canvas ref="dynamicCharts"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="ui segment table-card">
-                    <div class="table-top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <h3 class="ui header" style="margin: 0;">
-                            Competitions ({ filteredCompetitions.length })
-                        </h3>
-                        <button class="ui green mini button" onclick="{ downloadCSV }">
-                            <i class="download icon"></i> Download CSV
-                        </button>
-                    </div>
-
-                    <div class="table-scroll-wrap" style="max-height: 480px; overflow-y: auto;">
-                        <table class="ui celled compact striped selectable table">
-                            <thead>
-                                <tr>
-                                    <th onclick="{ sortTableId }" style="cursor: pointer; width: 60px;">ID <i class="sort icon"></i></th>
-                                    <th onclick="{ sortTableTitle }" style="cursor: pointer;">Title <i class="sort icon"></i></th>
-                                    <th onclick="{ sortTableOrg }" style="cursor: pointer; width: 140px;">Organizer <i class="sort icon"></i></th>
-                                    <th each="{ cat in availableCategories }">{ cat }</th>
-                                    <th style="width: 70px; text-align: center;">Link</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr each="{ comp in pagedCompetitions }">
-                                    <td>{ comp.id }</td>
-                                    <td>
-                                        <strong><a href="{ comp.url }">{ comp.title }</a></strong>
-                                    </td>
-                                    <td>{ comp.organizer }</td>
-                                    <td each="{ colStr in comp.categoryColumns }">
-                                        <span if="{ colStr }" style="color: #1678c2; font-weight: bold; font-size: 12px;">{ colStr }</span>
-                                        <span if="{ !colStr }" style="color: #888;">—</span>
-                                    </td>
-                                    <td class="center aligned">
-                                        <a href="{ comp.url }" class="ui mini primary icon button" target="_blank" title="View Competition">
-                                            <i class="external alternate icon"></i>
-                                        </a>
-                                    </td>
-                                </tr>
-                                <tr if="{ filteredCompetitions.length === 0 }">
-                                    <td colspan="10" class="center aligned">
-                                        <em>No competitions match the selected filters.</em>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="pagination-footer" if="{ totalPages > 1 }" style="display: flex; justify-content: center; margin-top: 12px;">
-                        <div class="ui secondary compact menu">
-                            <a class="item { disabled: currentPage === 1 }" onclick="{ changePagePrev }">
-                                <i class="chevron left icon"></i> Prev
-                            </a>
-                            <div class="item">Page { currentPage } of { totalPages }</div>
-                            <a class="item { disabled: currentPage === totalPages }" onclick="{ changePageNext }">
-                                Next <i class="chevron right icon"></i>
-                            </a>
-                        </div>
-                    </div>
-                </div>
+                <dashboard-table p="{ this }"></dashboard-table>
             </div>
         </div>
     </div>
@@ -288,7 +110,7 @@
                             self.onDataLoaded();
                             // Init Semantic UI accordion and bind state to preserve open/close across Riot updates
                             setTimeout(function() {
-                                $('.category-accordion', self.root).accordion({
+                                $('.category-accordion').accordion({
                                     exclusive: false,
                                     onOpen: function() {
                                         var catName = $(this).data('catname');
@@ -680,7 +502,7 @@
             self.currentPage = Math.min(self.currentPage, self.totalPages);
             self.updatePagination();
             setTimeout(function() {
-                $('.category-accordion', self.root).accordion({
+                $('.category-accordion').accordion({
                     exclusive: false,
                     onOpen: function() {
                         var catName = $(this).data('catname');

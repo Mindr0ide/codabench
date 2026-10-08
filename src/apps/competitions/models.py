@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 class TagCategory(models.Model):
     name = models.CharField(max_length=256, unique=True)
 
+    class Meta:
+        verbose_name_plural = "Tag categories"
+    
     def __str__(self):
         return self.name
 

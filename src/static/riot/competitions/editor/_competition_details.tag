@@ -38,6 +38,40 @@
             <select class="ui fluid search selection dropdown" ref="queue"></select>
         </div>
 
+        <!--  Tags  -->
+        <div class="field">
+            <label>Tags</label>
+            <!-- Selected Tags Area -->
+            <div class="ui secondary segment" show="{ selected_tags_cache.length > 0 }" style="margin-bottom: 10px;">
+                <div class="ui labels">
+                    <a class="ui blue label" each="{ tag in selected_tags_cache }">
+                        { tag.name }
+                        <i class="delete icon" onclick="{ remove_tag }"></i>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Available Tags Area -->
+            <div class="ui segment" style="max-height: 300px; overflow-y: auto;">
+                <div each="{ cat in tags_by_category }" style="margin-bottom: 15px;">
+                    <h5 class="ui dividing header" style="margin-top: 0;">{ cat.name }</h5>
+                    <div class="ui labels">
+                        <a class="ui { is_selected(tag.id) ? 'blue' : 'basic' } label" 
+                           each="{ tag in cat.tags }" 
+                           onclick="{ toggle_tag }"
+                           style="margin-bottom: 8px; cursor: pointer; user-select: none;">
+                           { tag.name }
+                           <i class="check icon" if="{ is_selected(tag.id) }"></i>
+                           <i class="plus icon" if="{ !is_selected(tag.id) }"></i>
+                        </a>
+                    </div>
+                </div>
+                <div if="{ tags_by_category.length === 0 }">
+                    <div class="ui active centered inline loader"></div>
+                </div>
+            </div>
+        </div>
+
         <!--  Docker Image  -->
         <div class="field required">
             <label>Competition Docker Image</label>
@@ -283,6 +317,30 @@
             // Set placeholder here so we can have multiple lines
             $(self.refs.comp_fact_sheet).attr('placeholder', '{\n  "key": ["value1","value2",true,false]\n  "leave_blank_to_accept_any": ""\n}\n')
             self.markdown_editor = create_easyMDE(self.refs.comp_description)
+            
+            // Fetch Tags
+            CODALAB.api.request('GET', URLS.API + 'tags/')
+                .done(function (data) {
+                    var temp_categories = {};
+                    self.all_tags = {};
+                    data.forEach(function(tag) {
+                        self.all_tags[tag.id] = tag;
+                        if (!temp_categories[tag.category_name]) {
+                            temp_categories[tag.category_name] = [];
+                        }
+                        temp_categories[tag.category_name].push(tag);
+                    });
+                    
+                    self.tags_by_category = [];
+                    Object.keys(temp_categories).forEach(function(cat_name) {
+                        self.tags_by_category.push({
+                            name: cat_name,
+                            tags: temp_categories[cat_name]
+                        });
+                    });
+                    self.update_selected_tags_cache();
+                    self.update();
+                });
             $('.ui.checkbox', self.root).checkbox({
                 onChange: self.form_updated
             })
@@ -319,6 +377,41 @@
             self.update()
         })
 
+        self.tags_by_category = []
+        self.all_tags = {}
+        self.selected_tag_ids = []
+        self.selected_tags_cache = []
+
+        self.update_selected_tags_cache = function() {
+            self.selected_tags_cache = self.selected_tag_ids.map(id => self.all_tags[id]).filter(Boolean);
+        }
+
+        self.is_selected = function(id) {
+            return self.selected_tag_ids.indexOf(id) !== -1;
+        }
+
+        self.toggle_tag = function(e) {
+            var tag_id = e.item.tag.id;
+            var idx = self.selected_tag_ids.indexOf(tag_id);
+            if (idx === -1) {
+                self.selected_tag_ids.push(tag_id);
+            } else {
+                self.selected_tag_ids.splice(idx, 1);
+            }
+            self.update_selected_tags_cache();
+            self.form_updated();
+        }
+
+        self.remove_tag = function(e) {
+            var tag_id = e.item.tag.id;
+            var idx = self.selected_tag_ids.indexOf(tag_id);
+            if (idx !== -1) {
+                self.selected_tag_ids.splice(idx, 1);
+            }
+            self.update_selected_tags_cache();
+            self.form_updated();
+        }
+
         /*---------------------------------------------------------------------
          Methods
         ---------------------------------------------------------------------*/
@@ -329,6 +422,7 @@
             self.data["title"] = self.refs.title.value
             self.data["description"] = self.markdown_editor.value()
             self.data["queue"] = self.refs.queue.value
+            self.data["tags"] = self.selected_tag_ids
             self.data["enable_detailed_results"] = self.refs.detailed_results.checked
             self.data["show_detailed_results_in_submission_panel"] = self.refs.show_detailed_results_in_submission_panel.checked
             self.data["show_detailed_results_in_leaderboard"] = self.refs.show_detailed_results_in_leaderboard.checked
@@ -472,6 +566,11 @@
                 $(self.refs.queue)
                     .dropdown('set text', competition.queue.name)
                     .dropdown('set value', competition.queue.id)
+            }
+            if (competition.tags) {
+                self.selected_tag_ids = competition.tags;
+                self.update_selected_tags_cache();
+                self.update();
             }
             self.refs.detailed_results.checked = competition.enable_detailed_results
             self.refs.show_detailed_results_in_submission_panel.checked = competition.show_detailed_results_in_submission_panel
