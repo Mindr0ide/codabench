@@ -25,7 +25,7 @@
 
             <div class="twelve wide column">
                 <dashboard-charts p="{ this }"></dashboard-charts>
-                
+
 
                 <dashboard-table p="{ this }"></dashboard-table>
             </div>
@@ -49,7 +49,7 @@
         self.categoryFilters = [];
         self.chartCards = [];
         self.categoryTagsCounts = {};
-        
+
         self.kpis = {
             distinctOrganizers: 0,
             participants: 0,
@@ -76,12 +76,12 @@
 
         var PALETTE = ["#2185d0", "#00b5ad", "#21ba45", "#fbbd08", "#f2711c", "#db2828", "#a333c8", "#e03997", "#767676"];
 
-        self.on('mount', function () {
+        self.on('mount', () => {
             self.fetchData();
         });
 
         // Fetch all competitions using recursive pagination to enable client-side filtering
-        self.fetchData = function () {
+        self.fetchData = () => {
             self.loading = true;
             self.update();
 
@@ -93,12 +93,29 @@
                 apiUrl += "&visibility=public";
             }
 
-            function fetchPage(url) {
+            var tagsUrl = (typeof URLS !== "undefined" && URLS.API) ? URLS.API + "tags/" : "/api/tags/";
+            CODALAB.api.request('GET', tagsUrl)
+                .done((tagsData) => {
+                    self.globalCategoryTags = {};
+                    tagsData.forEach((tag) => {
+                        var cat = tag.category_name || "Other";
+                        if (!self.globalCategoryTags[cat]) self.globalCategoryTags[cat] = {};
+                        self.globalCategoryTags[cat][tag.name] = true;
+                    });
+                    fetchPage(apiUrl);
+                })
+                .fail(() => {
+                    if (typeof toastr !== "undefined") toastr.error("Failed to load tag categories");
+                    self.globalCategoryTags = {};
+                    fetchPage(apiUrl);
+                });
+
+            const fetchPage = (url) => {
                 CODALAB.api.request('GET', url)
-                    .done(function (resp) {
+                    .done((resp) => {
                         var results = (resp && resp.results) ? resp.results : [];
                         allResults = allResults.concat(results);
-                        
+
                         if (resp && resp.next) {
                             var parser = document.createElement('a');
                             parser.href = resp.next;
@@ -109,7 +126,7 @@
                             self.dataSource = "api";
                             self.onDataLoaded();
                             // Init Semantic UI accordion and bind state to preserve open/close across Riot updates
-                            setTimeout(function() {
+                            setTimeout(() => {
                                 $('.category-accordion').accordion({
                                     exclusive: false,
                                     onOpen: function() {
@@ -124,7 +141,7 @@
                             }, 50);
                         }
                     })
-                    .fail(function () {
+                    .fail(() => {
                         if (typeof toastr !== "undefined") toastr.error("Failed to load competitions data");
                         if (allResults.length > 0) {
                             self.allCompetitions = self.classifyCompetitions(allResults);
@@ -139,21 +156,21 @@
             fetchPage(apiUrl);
         };
 
-        self.onDataLoaded = function () {
+        self.onDataLoaded = () => {
             self.loading = false;
             self.applyFilters();
             self.update();
-            setTimeout(function () {
+            setTimeout(() => {
                 self.initCalendars();
                 self.initOrUpdateCharts();
             }, 50);
         };
 
         // Extract categories and tags from raw API response to build filter menus
-        self.classifyCompetitions = function (list) {
-            self.globalCategoryTags = {};
-            
-            var mapped = list.map(function (item) {
+        self.classifyCompetitions = (list) => {
+            if (!self.globalCategoryTags) self.globalCategoryTags = {};
+
+            var mapped = list.map((item) => {
                 var compUrl = (typeof URLS !== "undefined" && URLS.COMPETITION_DETAIL) ? URLS.COMPETITION_DETAIL(item.id) : ("/competitions/" + item.id + "/");
                 var comp = {
                     id: item.id,
@@ -169,11 +186,8 @@
                 };
 
                 if (item.tags && Array.isArray(item.tags)) {
-                    item.tags.forEach(function(tag) {
+                    item.tags.forEach((tag) => {
                         var cat = tag.category || "Other";
-                        if (!self.globalCategoryTags[cat]) self.globalCategoryTags[cat] = {};
-                        self.globalCategoryTags[cat][tag.name] = true;
-                        
                         if (!comp.tagsByCategory[cat]) comp.tagsByCategory[cat] = [];
                         comp.tagsByCategory[cat].push(tag.name);
                     });
@@ -182,12 +196,12 @@
             });
 
             self.availableCategories = Object.keys(self.globalCategoryTags).sort();
-            
+
             self.state.selectedTags = {};
             self.chartCards = [];
-            
+
             // Re-bind charts, using refs array for dynamically rendered canvas elements
-            self.availableCategories.forEach(function(cat, idx) {
+            self.availableCategories.forEach((cat, idx) => {
                 self.state.selectedTags[cat] = {};
                 self.chartCards.push({
                     catName: cat,
@@ -197,8 +211,8 @@
 
             self.kpis.categoriesPresent = self.availableCategories.length;
 
-            mapped.forEach(function(comp) {
-                comp.categoryColumns = self.availableCategories.map(function(cat) {
+            mapped.forEach((comp) => {
+                comp.categoryColumns = self.availableCategories.map((cat) => {
                     return (comp.tagsByCategory[cat] || []).join(", ");
                 });
             });
@@ -206,7 +220,7 @@
             return mapped;
         };
 
-        self.toggleTagHandler = function (e) {
+        self.toggleTagHandler = (e) => {
             var catName = e.target.getAttribute('data-cat');
             var tagName = e.target.getAttribute('data-tag');
             var checked = e.target.checked;
@@ -225,7 +239,7 @@
             setTimeout(self.initOrUpdateCharts, 50);
         };
 
-        self.resetFilters = function () {
+        self.resetFilters = () => {
             self.state.search = "";
             self.state.mode = "or";
             self.state.selectedTags = {};
@@ -240,15 +254,17 @@
             setTimeout(self.initOrUpdateCharts, 50);
         };
 
-        self.initCalendars = function () {
+        self.initCalendars = () => {
             var general_calendar_options = {
                 type: 'date',
                 formatter: {
-                   date: function (date, settings) {
-                       if (!date) return '';
-                       var d = date.getDate(), m = date.getMonth() + 1, y = date.getFullYear();
-                       return y + '-' + (m<=9 ? '0' + m : m) + '-' + (d<=9 ? '0' + d : d);
-                   }
+                    date: function(date, settings) {
+                        if (!date) return '';
+                        var d = date.getDate(),
+                            m = date.getMonth() + 1,
+                            y = date.getFullYear();
+                        return y + '-' + (m <= 9 ? '0' + m : m) + '-' + (d <= 9 ? '0' + d : d);
+                    }
                 }
             };
 
@@ -278,14 +294,14 @@
             $(self.refs.end_calendar).calendar(end_options);
         };
 
-        self.updateSearch = function (e) {
+        self.updateSearch = (e) => {
             self.state.search = e.target.value.toLowerCase();
-            
+
             if (self.search_timer) {
                 clearTimeout(self.search_timer);
             }
-            
-            self.search_timer = setTimeout(function() {
+
+            self.search_timer = setTimeout(() => {
                 self.currentPage = 1;
                 self.applyFilters();
                 self.update();
@@ -293,7 +309,7 @@
             }, 400); // Debounce to prevent UI freeze while typing
         };
 
-        self.updateSearchField = function (e) {
+        self.updateSearchField = (e) => {
             self.state.searchField = e.target.value;
             self.currentPage = 1;
             self.applyFilters();
@@ -301,7 +317,7 @@
             setTimeout(self.initOrUpdateCharts, 50);
         };
 
-        self.setModeOr = function () {
+        self.setModeOr = () => {
             self.state.mode = 'or';
             self.currentPage = 1;
             self.applyFilters();
@@ -309,7 +325,7 @@
             setTimeout(self.initOrUpdateCharts, 50);
         };
 
-        self.setVisibility = function(val) {
+        self.setVisibility = (val) => {
             self.state.visibility = val;
             self.currentPage = 1;
             self.applyFilters();
@@ -317,7 +333,7 @@
             setTimeout(self.initOrUpdateCharts, 50);
         };
 
-        self.setType = function(val) {
+        self.setType = (val) => {
             self.state.type = val;
             self.currentPage = 1;
             self.applyFilters();
@@ -325,7 +341,7 @@
             setTimeout(self.initOrUpdateCharts, 50);
         };
 
-        self.setModeAnd = function () {
+        self.setModeAnd = () => {
             self.state.mode = 'and';
             self.currentPage = 1;
             self.applyFilters();
@@ -333,11 +349,17 @@
             setTimeout(self.initOrUpdateCharts, 50);
         };
 
-        self.sortTableId = function () { self.sortTable('id'); };
-        self.sortTableTitle = function () { self.sortTable('title'); };
-        self.sortTableOrg = function () { self.sortTable('organizer'); };
+        self.sortTableId = () => {
+            self.sortTable('id');
+        };
+        self.sortTableTitle = () => {
+            self.sortTable('title');
+        };
+        self.sortTableOrg = () => {
+            self.sortTable('organizer');
+        };
 
-        self.sortTable = function (key) {
+        self.sortTable = (key) => {
             if (self.state.sortKey === key) {
                 self.state.sortDir *= -1;
             } else {
@@ -348,7 +370,7 @@
             self.update();
         };
 
-        self.changePagePrev = function () {
+        self.changePagePrev = () => {
             var p = self.currentPage - 1;
             if (p >= 1 && p <= self.totalPages) {
                 self.currentPage = p;
@@ -356,7 +378,7 @@
             }
         };
 
-        self.changePageNext = function () {
+        self.changePageNext = () => {
             var p = self.currentPage + 1;
             if (p >= 1 && p <= self.totalPages) {
                 self.currentPage = p;
@@ -381,7 +403,7 @@
                     var selected = Object.keys(selectedTagsByCat[cat]);
                     var compTags = compTagsByCat[cat] || [];
                     var allMatch = true;
-                    selected.forEach(function(it) {
+                    selected.forEach((it) => {
                         if (compTags.indexOf(it) === -1) allMatch = false;
                     });
                     if (!allMatch) return false;
@@ -393,7 +415,7 @@
                     var selected = Object.keys(selectedTagsByCat[cat]);
                     var compTags = compTagsByCat[cat] || [];
                     var anyMatch = false;
-                    selected.forEach(function(it) {
+                    selected.forEach((it) => {
                         if (compTags.indexOf(it) !== -1) anyMatch = true;
                     });
                     if (anyMatch) return true;
@@ -403,9 +425,9 @@
         }
 
         // Main filter pipeline: Text search -> Visibility -> Tag matching -> Rebuild UI counts
-        self.applyFilters = function () {
+        self.applyFilters = () => {
             var s = self.state.search;
-            self.filteredCompetitions = self.allCompetitions.filter(function (c) {
+            self.filteredCompetitions = self.allCompetitions.filter((c) => {
                 if (self.isAdmin) {
                     if (self.state.visibility === 'public' && !c.published) return false;
                     if (self.state.visibility === 'private' && c.published) return false;
@@ -413,13 +435,13 @@
                 if (self.state.type !== 'all' && c.competition_type !== self.state.type) {
                     return false;
                 }
-                
+
                 if (self.state.startDate || self.state.endDate) {
                     var compDate = c.created_when ? new Date(c.created_when) : null;
                     if (!compDate) return false;
-                    
+
                     if (self.state.startDate && compDate < self.state.startDate) return false;
-                    
+
                     // We must include the entire end date up to midnight
                     if (self.state.endDate) {
                         var endLimit = new Date(self.state.endDate);
@@ -430,7 +452,7 @@
                 if (s) {
                     var matchTitle = c.title.toLowerCase().indexOf(s) !== -1;
                     var matchOrg = c.organizer.toLowerCase().indexOf(s) !== -1;
-                    
+
                     if (self.state.searchField === 'title' && !matchTitle) return false;
                     if (self.state.searchField === 'organizer' && !matchOrg) return false;
                     if (self.state.searchField === 'both' && !matchTitle && !matchOrg) return false;
@@ -438,7 +460,7 @@
                 return tagMatch(c.tagsByCategory, self.state.selectedTags);
             });
 
-            self.filteredCompetitions.sort(function (a, b) {
+            self.filteredCompetitions.sort((a, b) => {
                 var vA = a[self.state.sortKey];
                 var vB = b[self.state.sortKey];
                 if (typeof vA === "string") vA = vA.toLowerCase();
@@ -453,45 +475,49 @@
             var totalTags = 0;
             var totalParticipants = 0;
             var totalSubmissions = 0;
-            
-            self.filteredCompetitions.forEach(function (c) {
+
+            self.filteredCompetitions.forEach((c) => {
                 orgs[c.organizer] = true;
                 totalParticipants += (c.participants_count || 0);
                 totalSubmissions += (c.submissions_count || 0);
-                
-                Object.keys(c.tagsByCategory).forEach(function(cat) {
+
+                Object.keys(c.tagsByCategory).forEach((cat) => {
                     if (!self.categoryTagsCounts[cat]) self.categoryTagsCounts[cat] = {};
-                    c.tagsByCategory[cat].forEach(function(t) {
+                    c.tagsByCategory[cat].forEach((t) => {
                         totalTags++;
                         self.categoryTagsCounts[cat][t] = (self.categoryTagsCounts[cat][t] || 0) + 1;
                     });
                 });
             });
-            
+
             self.kpis.distinctOrganizers = Object.keys(orgs).length;
             self.kpis.tagsAssigned = totalTags;
             self.kpis.participants = totalParticipants;
             self.kpis.submissions = totalSubmissions;
 
             self.categoryFilters = [];
-            self.availableCategories.forEach(function(cat) {
+            self.availableCategories.forEach((cat) => {
                 var counts = self.categoryTagsCounts[cat] || {};
                 var allTagsForCat = Object.keys(self.globalCategoryTags[cat]);
-                
-                var tagsArr = allTagsForCat.map(function(k) {
+
+                var tagsArr = allTagsForCat.map((k) => {
                     var isChecked = false;
                     if (self.state.selectedTags[cat] && self.state.selectedTags[cat][k]) {
                         isChecked = true;
                     }
-                    return { name: k, count: (counts[k] || 0), checked: isChecked };
+                    return {
+                        name: k,
+                        count: (counts[k] || 0),
+                        checked: isChecked
+                    };
                 });
-                
-                tagsArr.sort(function (a, b) { 
+
+                tagsArr.sort((a, b) => {
                     if (a.checked !== b.checked) return a.checked ? -1 : 1;
-                    if (b.count !== a.count) return b.count - a.count; 
+                    if (b.count !== a.count) return b.count - a.count;
                     return a.name.localeCompare(b.name);
                 });
-                
+
                 self.categoryFilters.push({
                     name: cat,
                     tags: tagsArr
@@ -501,7 +527,7 @@
             self.totalPages = Math.max(1, Math.ceil(self.filteredCompetitions.length / self.pageSize));
             self.currentPage = Math.min(self.currentPage, self.totalPages);
             self.updatePagination();
-            setTimeout(function() {
+            setTimeout(() => {
                 $('.category-accordion').accordion({
                     exclusive: false,
                     onOpen: function() {
@@ -516,45 +542,55 @@
             }, 50);
         };
 
-        self.updatePagination = function () {
+        self.updatePagination = () => {
             var start = (self.currentPage - 1) * self.pageSize;
             self.pagedCompetitions = self.filteredCompetitions.slice(start, start + self.pageSize);
         };
 
         function countOrgs(list, limit) {
             var map = {};
-            list.forEach(function (c) {
+            list.forEach((c) => {
                 map[c.organizer] = (map[c.organizer] || 0) + 1;
             });
-            var entries = Object.keys(map).map(function (k) { return [k, map[k]]; });
-            entries.sort(function (a, b) { return b[1] - a[1]; });
+            var entries = Object.keys(map).map((k) => {
+                return [k, map[k]];
+            });
+            entries.sort((a, b) => {
+                return b[1] - a[1];
+            });
             return entries.slice(0, limit);
         }
 
         // Cycle through Bar, Doughnut, and Vertical Bar charts for tag categories
-        self.initOrUpdateCharts = function () {
+        self.initOrUpdateCharts = () => {
             var rows = self.filteredCompetitions;
-            
+
             var oPairs = countOrgs(rows, 10);
             self.renderHorizontalBar("chOrgs", oPairs, "#21ba45");
 
-            var cPairs = rows.map(function(c) { 
+            var cPairs = rows.map((c) => {
                 var shortTitle = c.title.length > 25 ? c.title.substring(0, 25) + '...' : c.title;
-                return [shortTitle, c.participants_count || 0]; 
+                return [shortTitle, c.participants_count || 0];
             });
-            cPairs.sort(function(a, b) { return b[1] - a[1]; });
+            cPairs.sort((a, b) => {
+                return b[1] - a[1];
+            });
             cPairs = cPairs.slice(0, 10);
             self.renderHorizontalBar("chComps", cPairs, "#fbbd08");
 
             // Re-bind charts, using refs array for dynamically rendered canvas elements
-            self.availableCategories.forEach(function(cat, idx) {
+            self.availableCategories.forEach((cat, idx) => {
                 var counts = self.categoryTagsCounts[cat] || {};
-                var pairs = Object.keys(counts).map(function(k) { return [k, counts[k]]; });
-                pairs.sort(function(a, b) { return b[1] - a[1]; });
+                var pairs = Object.keys(counts).map((k) => {
+                    return [k, counts[k]];
+                });
+                pairs.sort((a, b) => {
+                    return b[1] - a[1];
+                });
                 pairs = pairs.slice(0, 15);
-                
+
                 var canvasId = "chart_cat_" + idx;
-                
+
                 var el = null;
                 if (self.refs.dynamicCharts) {
                     if (Array.isArray(self.refs.dynamicCharts)) {
@@ -564,7 +600,7 @@
                     }
                 }
                 var color = PALETTE[idx % PALETTE.length];
-                
+
                 if (el) {
                     if (idx % 3 === 0) {
                         self.renderHorizontalBarId(canvasId, pairs, color, el);
@@ -577,17 +613,21 @@
             });
         };
 
-        self.renderHorizontalBar = function (refName, pairs, color) {
+        self.renderHorizontalBar = (refName, pairs, color) => {
             var el = self.refs[refName];
             if (!el) return;
             self.renderHorizontalBarId(refName, pairs, color, el);
         };
-        
-        self.renderHorizontalBarId = function (id, pairs, color, elementObj) {
+
+        self.renderHorizontalBarId = (id, pairs, color, elementObj) => {
             var el = elementObj || document.getElementById(id);
             if (!el) return;
-            var labels = pairs.map(function (p) { return p[0]; });
-            var dataVals = pairs.map(function (p) { return p[1]; });
+            var labels = pairs.map((p) => {
+                return p[0];
+            });
+            var dataVals = pairs.map((p) => {
+                return p[1];
+            });
 
             if (self.charts[id]) {
                 self.charts[id].data.labels = labels;
@@ -607,26 +647,41 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        legend: { display: false },
+                        legend: {
+                            display: false
+                        },
                         scales: {
-                            xAxes: [{ ticks: { beginAtZero: true, precision: 0 } }],
-                            yAxes: [{ gridLines: { display: false } }]
+                            xAxes: [{
+                                ticks: {
+                                    beginAtZero: true,
+                                    precision: 0
+                                }
+                            }],
+                            yAxes: [{
+                                gridLines: {
+                                    display: false
+                                }
+                            }]
                         }
                     }
                 });
             }
         };
 
-        self.renderDoughnutId = function (id, pairs, elementObj) {
+        self.renderDoughnutId = (id, pairs, elementObj) => {
             var el = elementObj || self.refs[id];
             if (!el) return;
-            var labels = pairs.map(function (p) { return p[0]; });
-            var dataVals = pairs.map(function (p) { return p[1]; });
+            var labels = pairs.map((p) => {
+                return p[0];
+            });
+            var dataVals = pairs.map((p) => {
+                return p[1];
+            });
 
             if (self.charts[id]) {
                 self.charts[id].data.labels = labels;
                 self.charts[id].data.datasets[0].data = dataVals;
-                self.charts[id].data.datasets[0].backgroundColor = labels.map(function (_, i) {
+                self.charts[id].data.datasets[0].backgroundColor = labels.map((_, i) => {
                     return PALETTE[(i + 5) % PALETTE.length];
                 });
                 self.charts[id].update();
@@ -637,7 +692,9 @@
                         labels: labels,
                         datasets: [{
                             data: dataVals,
-                            backgroundColor: labels.map(function (_, i) { return PALETTE[(i + 5) % PALETTE.length]; })
+                            backgroundColor: labels.map((_, i) => {
+                                return PALETTE[(i + 5) % PALETTE.length];
+                            })
                         }]
                     },
                     options: {
@@ -646,18 +703,25 @@
                         cutoutPercentage: 55,
                         legend: {
                             position: "right",
-                            labels: { boxWidth: 12, fontSize: 11 }
+                            labels: {
+                                boxWidth: 12,
+                                fontSize: 11
+                            }
                         }
                     }
                 });
             }
         };
 
-        self.renderVerticalBarId = function (id, pairs, color, elementObj) {
+        self.renderVerticalBarId = (id, pairs, color, elementObj) => {
             var el = elementObj || self.refs[id];
             if (!el) return;
-            var labels = pairs.map(function (p) { return p[0]; });
-            var dataVals = pairs.map(function (p) { return p[1]; });
+            var labels = pairs.map((p) => {
+                return p[0];
+            });
+            var dataVals = pairs.map((p) => {
+                return p[1];
+            });
 
             if (self.charts[id]) {
                 self.charts[id].data.labels = labels;
@@ -677,10 +741,21 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        legend: { display: false },
+                        legend: {
+                            display: false
+                        },
                         scales: {
-                            yAxes: [{ ticks: { beginAtZero: true, precision: 0 } }],
-                            xAxes: [{ gridLines: { display: false } }]
+                            yAxes: [{
+                                ticks: {
+                                    beginAtZero: true,
+                                    precision: 0
+                                }
+                            }],
+                            xAxes: [{
+                                gridLines: {
+                                    display: false
+                                }
+                            }]
                         }
                     }
                 });
@@ -688,31 +763,34 @@
         };
 
         // Export currently filtered competitions to CSV
-        self.downloadCSV = function () {
+        self.downloadCSV = () => {
             var rows = self.filteredCompetitions;
-            var esc = function (v) { return '"' + String(v || '').replace(/"/g, '""') + '"'; };
+            var esc = (v) => {
+                return '"' + String(v || '').replace(/"/g, '""') + '"';
+            };
             var headers = ["id", "title", "organizer", "url"].concat(self.availableCategories);
             var lines = [headers.join(",")];
-            rows.forEach(function (c) {
+            rows.forEach((c) => {
                 var rowData = [
                     c.id,
                     esc(c.title),
                     esc(c.organizer),
                     esc(c.url)
                 ];
-                self.availableCategories.forEach(function(cat) {
+                self.availableCategories.forEach((cat) => {
                     rowData.push(esc((c.tagsByCategory[cat] || []).join("; ")));
                 });
                 lines.push(rowData.join(","));
             });
-            var blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+            var blob = new Blob([lines.join("\n")], {
+                type: "text/csv;charset=utf-8;"
+            });
             var link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
             link.download = "codabench_competitions_filtered.csv";
             link.click();
             URL.revokeObjectURL(link.href);
         };
-
     </script>
 
     <style type="text/stylus" scoped>

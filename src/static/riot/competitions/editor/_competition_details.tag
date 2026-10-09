@@ -56,13 +56,10 @@
                 <div each="{ cat in tags_by_category }" style="margin-bottom: 15px;">
                     <h5 class="ui dividing header" style="margin-top: 0;">{ cat.name }</h5>
                     <div class="ui labels">
-                        <a class="ui { is_selected(tag.id) ? 'blue' : 'basic' } label" 
-                           each="{ tag in cat.tags }" 
-                           onclick="{ toggle_tag }"
-                           style="margin-bottom: 8px; cursor: pointer; user-select: none;">
-                           { tag.name }
-                           <i class="check icon" if="{ is_selected(tag.id) }"></i>
-                           <i class="plus icon" if="{ !is_selected(tag.id) }"></i>
+                        <a class="ui { is_selected(tag.id) ? 'blue' : 'basic' } label" each="{ tag in cat.tags }" onclick="{ toggle_tag }" style="margin-bottom: 8px; cursor: pointer; user-select: none;">
+                            { tag.name }
+                            <i class="check icon" if="{ is_selected(tag.id) }"></i>
+                            <i class="plus icon" if="{ !is_selected(tag.id) }"></i>
                         </a>
                     </div>
                 </div>
@@ -118,51 +115,51 @@
             </div>
             <br>
             <form ref="comp_fact_sheet">
-            <div class="fact-sheet-question" each="{question in fact_sheet_questions}">
-                <div class="row" id="q-div-{question.id}">
-                    <p  if="{ question.type === 'checkbox' }">Type: Boolean
-                    <input type="hidden" name="type-{question.id}" value="checkbox">
-                    </p>
-                    <p if="{ question.type === 'text' }">Type: Text
-                    <input type="hidden" name="type-{question.id}" value="text">
-                    </p>
-                    <p if="{ question.type === 'select' }">Type: Select
-                    <input type="hidden" name="type-{question.id}" value="select">
-                    </p>
-                    <p>
-                        <label style="font-size: 1em; font-weight: 500;" for="key-{question.id}">Key name: </label>
-                        <a class="float-right" data-tooltip="Key is required for programmatic access to data. Best Practice is to have no whitespace." data-position="right center">
-                            <i class="grey question circle icon"></i>
-                        </a>
-                        <input name="key-{question.id}" id="key-{question.id}" type="text" value="{question.key}">
-                    </p>
-                    <p if="{ question.type === 'select' }">
-                        <label for="selection-{question.id}">Choices (Comma Separated): </label>
-                        <input name="selection-{question.id}" id="selection-{question.id}" type="text" value="{question.selection.join()}">
-                    </p>
-                    <p>
-                        <label for="is_on_leaderboard-{question.id}">Show On Leaderboard: </label>
-                        <input type="hidden" name="is_on_leaderboard-{question.id}" value="false">
-                        <input if="{question.is_on_leaderboard === 'true'}" type="checkbox" name="is_on_leaderboard-{question.id}" value="true" onchange="{form_updated}" checked>
-                        <input if="{question.is_on_leaderboard !== 'true'}" type="checkbox" name="is_on_leaderboard-{question.id}" value="true" onchange="{form_updated}">
-                    </p>
-                    <p>
-                        <label for="title-{question.id}">Display Name: </label>
-                        <a class="float-right" data-tooltip="This is what the user sees when prompted for an answer, and the category name on the leaderboard." data-position="right center">
-                            <i class="grey question circle icon"></i>
-                        </a>
-                        <input name="title-{question.id}" id="title-{question.id}" type="text" value="{question.title}">
-                    </p>
-                    <p>
-                        <label for="is-required-{question.id}">Is Required:</label>
-                        <input type="hidden" name="is_required-{question.id}" value="false">
-                        <input if="{question.is_required === 'true'}" type="checkbox" name="is_required-{question.id}" value="true" onchange="{form_updated}" checked>
-                        <input if="{question.is_required !== 'true'}" type="checkbox" name="is_required-{question.id}" value="true" onchange="{form_updated}">
-                    </p>
+                <div class="fact-sheet-question" each="{question in fact_sheet_questions}">
+                    <div class="row" id="q-div-{question.id}">
+                        <p if="{ question.type === 'checkbox' }">Type: Boolean
+                            <input type="hidden" name="type-{question.id}" value="checkbox">
+                        </p>
+                        <p if="{ question.type === 'text' }">Type: Text
+                            <input type="hidden" name="type-{question.id}" value="text">
+                        </p>
+                        <p if="{ question.type === 'select' }">Type: Select
+                            <input type="hidden" name="type-{question.id}" value="select">
+                        </p>
+                        <p>
+                            <label style="font-size: 1em; font-weight: 500;" for="key-{question.id}">Key name: </label>
+                            <a class="float-right" data-tooltip="Key is required for programmatic access to data. Best Practice is to have no whitespace." data-position="right center">
+                                <i class="grey question circle icon"></i>
+                            </a>
+                            <input name="key-{question.id}" id="key-{question.id}" type="text" value="{question.key}">
+                        </p>
+                        <p if="{ question.type === 'select' }">
+                            <label for="selection-{question.id}">Choices (Comma Separated): </label>
+                            <input name="selection-{question.id}" id="selection-{question.id}" type="text" value="{question.selection.join()}">
+                        </p>
+                        <p>
+                            <label for="is_on_leaderboard-{question.id}">Show On Leaderboard: </label>
+                            <input type="hidden" name="is_on_leaderboard-{question.id}" value="false">
+                            <input if="{question.is_on_leaderboard === 'true'}" type="checkbox" name="is_on_leaderboard-{question.id}" value="true" onchange="{form_updated}" checked>
+                            <input if="{question.is_on_leaderboard !== 'true'}" type="checkbox" name="is_on_leaderboard-{question.id}" value="true" onchange="{form_updated}">
+                        </p>
+                        <p>
+                            <label for="title-{question.id}">Display Name: </label>
+                            <a class="float-right" data-tooltip="This is what the user sees when prompted for an answer, and the category name on the leaderboard." data-position="right center">
+                                <i class="grey question circle icon"></i>
+                            </a>
+                            <input name="title-{question.id}" id="title-{question.id}" type="text" value="{question.title}">
+                        </p>
+                        <p>
+                            <label for="is-required-{question.id}">Is Required:</label>
+                            <input type="hidden" name="is_required-{question.id}" value="false">
+                            <input if="{question.is_required === 'true'}" type="checkbox" name="is_required-{question.id}" value="true" onchange="{form_updated}" checked>
+                            <input if="{question.is_required !== 'true'}" type="checkbox" name="is_required-{question.id}" value="true" onchange="{form_updated}">
+                        </p>
+                    </div>
+                    <br>
+                    <button class="ui basic red button" onclick="{remove_question.bind(this, question.id)}">Remove</button>
                 </div>
-                <br>
-                <button class="ui basic red button" onclick="{remove_question.bind(this, question.id)}">Remove</button>
-            </div>
             </form>
         </div>
 
@@ -171,9 +168,7 @@
             <label>
                 Files Available
                 <sup>
-                    <a href="https://docs.codabench.org/latest/Organizers/Benchmark_Creation/Yaml-Structure/"
-                       target="_blank"
-                       data-tooltip="What's this?">
+                    <a href="https://docs.codabench.org/latest/Organizers/Benchmark_Creation/Yaml-Structure/" target="_blank" data-tooltip="What's this?">
                         <i class="grey question circle icon"></i>
                     </a>
                 </sup>
@@ -197,9 +192,7 @@
                 <input type="checkbox" ref="detailed_results" onchange="{form_updated}">
             </div>
             <sup>
-                <a href="https://docs.codabench.org/latest/Organizers/Benchmark_Creation/Detailed-Results-and-Visualizations/"
-                   target="_blank"
-                   data-tooltip="What's this?">
+                <a href="https://docs.codabench.org/latest/Organizers/Benchmark_Creation/Detailed-Results-and-Visualizations/" target="_blank" data-tooltip="What's this?">
                     <i class="grey question circle icon"></i>
                 </a>
             </sup>
@@ -209,9 +202,7 @@
                 <input type="checkbox" ref="show_detailed_results_in_submission_panel" onchange="{form_updated}">
             </div>
             <sup>
-                <span data-tooltip="If checked and detailed results are enabled, participants can see detailed results in submission panel"
-                          data-inverted=""
-                          data-position="bottom center">
+                <span data-tooltip="If checked and detailed results are enabled, participants can see detailed results in submission panel" data-inverted="" data-position="bottom center">
                     <i class="help icon circle"></i>
                 </span>
             </sup>
@@ -221,9 +212,7 @@
                 <input type="checkbox" ref="show_detailed_results_in_leaderboard" onchange="{form_updated}">
             </div>
             <sup>
-                <span data-tooltip="If checked and detailed results are enabled, participants can see detailed results in leaderboard"
-                          data-inverted=""
-                          data-position="bottom center">
+                <span data-tooltip="If checked and detailed results are enabled, participants can see detailed results in leaderboard" data-inverted="" data-position="bottom center">
                     <i class="help icon circle"></i>
                 </span>
             </sup>
@@ -237,9 +226,7 @@
                 <input type="checkbox" ref="auto_run_submissions" onchange="{form_updated}">
             </div>
             <sup>
-                <span data-tooltip="If unchecked, organizers will have to manually run each submission"
-                          data-inverted=""
-                          data-position="bottom center">
+                <span data-tooltip="If unchecked, organizers will have to manually run each submission" data-inverted="" data-position="bottom center">
                     <i class="help icon circle"></i>
                 </span>
             </sup>
@@ -253,9 +240,7 @@
                 <input type="checkbox" ref="enable_human_in_the_loop" onchange="{form_updated}">
             </div>
             <sup>
-                <span data-tooltip="If checked, the compute worker will pause after scoring and wait for a manual validation before sending scores to the platform. Only active on private queues."
-                        data-inverted=""
-                        data-position="bottom center">
+                <span data-tooltip="If checked, the compute worker will pause after scoring and wait for a manual validation before sending scores to the platform. Only active on private queues." data-inverted="" data-position="bottom center">
                     <i class="help icon circle"></i>
                 </span>
             </sup>
@@ -274,9 +259,7 @@
                 <input type="checkbox" ref="can_participants_make_submissions_public" onchange="{form_updated}">
             </div>
             <sup>
-                <span data-tooltip="If unchecked, participants cannot make their submissions public from submission panel"
-                          data-inverted=""
-                          data-position="bottom center">
+                <span data-tooltip="If unchecked, participants cannot make their submissions public from submission panel" data-inverted="" data-position="bottom center">
                     <i class="help icon circle"></i>
                 </span>
             </sup>
@@ -290,9 +273,7 @@
                 <input type="checkbox" ref="forum_enabled" onchange="{form_updated}">
             </div>
             <sup>
-                <span data-tooltip="If unchecked, organizers and participants cannot see competition forum"
-                          data-inverted=""
-                          data-position="bottom center">
+                <span data-tooltip="If unchecked, organizers and participants cannot see competition forum" data-inverted="" data-position="bottom center">
                     <i class="help icon circle"></i>
                 </span>
             </sup>
@@ -313,14 +294,14 @@
         // component later!
         self.logo_file_name = ''
 
-        self.one("mount", function () {
+        self.one("mount", function() {
             // Set placeholder here so we can have multiple lines
             $(self.refs.comp_fact_sheet).attr('placeholder', '{\n  "key": ["value1","value2",true,false]\n  "leave_blank_to_accept_any": ""\n}\n')
             self.markdown_editor = create_easyMDE(self.refs.comp_description)
-            
+
             // Fetch Tags
             CODALAB.api.request('GET', URLS.API + 'tags/')
-                .done(function (data) {
+                .done(function(data) {
                     var temp_categories = {};
                     self.all_tags = {};
                     data.forEach(function(tag) {
@@ -330,7 +311,7 @@
                         }
                         temp_categories[tag.category_name].push(tag);
                     });
-                    
+
                     self.tags_by_category = [];
                     Object.keys(temp_categories).forEach(function(cat_name) {
                         self.tags_by_category.push({
@@ -346,11 +327,14 @@
             })
 
             // Draw in logo filename as it's changed
-            $(self.refs.logo).change(function () {
+            $(self.refs.logo).change(function() {
                 self.logo_file_name = self.refs.logo.value.replace(/\\/g, '/').replace(/.*\//, '')
                 self.update()
-                getBase64(this.files[0]).then(function (data) {
-                    self.data['logo'] = JSON.stringify({file_name: self.logo_file_name, data: data})
+                getBase64(this.files[0]).then(function(data) {
+                    self.data['logo'] = JSON.stringify({
+                        file_name: self.logo_file_name,
+                        data: data
+                    })
                     self.form_updated()
                 })
                 self.form_updated()
@@ -415,7 +399,7 @@
         /*---------------------------------------------------------------------
          Methods
         ---------------------------------------------------------------------*/
-        self.form_updated = function () {
+        self.form_updated = function() {
             var is_valid = true
 
             // NOTE: logo is excluded here because it is converted to 64 upon changing and set that way
@@ -443,7 +427,7 @@
             self.data['reward'] = $(self.refs.reward).val()
             self.data['contact_email'] = $(self.refs.contact_email).val()
             self.data['report'] = $(self.refs.report).val()
-            if (self.data.fact_sheet === false){
+            if (self.data.fact_sheet === false) {
                 is_valid = false
             }
 
@@ -466,24 +450,22 @@
 
         self.add_question = (type) => {
             let current_id = 0
-            if(self.fact_sheet_questions[0] !== undefined) {
+            if (self.fact_sheet_questions[0] !== undefined) {
                 current_id = self.fact_sheet_questions[self.fact_sheet_questions.length - 1].id + 1
             }
-            if(type === 'boolean'){
+            if (type === 'boolean') {
                 self.fact_sheet_questions.push({
                     "id": current_id,
                     "label": "",
                     "type": "checkbox"
                 })
-            }
-            else if(type === 'text'){
+            } else if (type === 'text') {
                 self.fact_sheet_questions.push({
                     "id": current_id,
                     "label": "",
                     "type": "text"
                 })
-            }
-            else if(type === 'selection'){
+            } else if (type === 'selection') {
                 self.fact_sheet_questions.push({
                     "id": current_id,
                     "label": "",
@@ -492,37 +474,37 @@
                 })
             }
             self.update()
-            $(':input', self.refs.comp_fact_sheet).not('button').not('[readonly]').each(function (i, field) {
+            $(':input', self.refs.comp_fact_sheet).not('button').not('[readonly]').each(function(i, field) {
                 this.addEventListener('keyup', self.form_updated)
             })
         }
 
-        self.remove_question = function (id) {
+        self.remove_question = function(id) {
             self.fact_sheet_questions = self.fact_sheet_questions.filter(q => q.id !== id)
             self.update()
             self.form_updated()
         }
 
-        self.serialize_fact_sheet_questions = function (){
+        self.serialize_fact_sheet_questions = function() {
             let form = $(self.refs.comp_fact_sheet).children()
             let form_json = {}
-            for(question of form){
+            for (question of form) {
                 let q_serialized = $(question).find(":input").serializeArray()
                 let question_key = q_serialized[1].value
                 form_json[question_key] = {}
-                if(q_serialized[0].value === "checkbox"){
+                if (q_serialized[0].value === "checkbox") {
                     form_json[question_key]['selection'] = [true, false]
-                } else if(q_serialized[0].value === "text") {
+                } else if (q_serialized[0].value === "text") {
                     form_json[question_key]['selection'] = ""
                 }
-                for(entry of q_serialized){
-                    if(entry.name.split('-')[0] === 'selection') {
+                for (entry of q_serialized) {
+                    if (entry.name.split('-')[0] === 'selection') {
                         let selection = entry.value.split(',')
                         selection = selection.map(s => s.trim()).filter(s => s !== '')
                         form_json[question_key][entry.name.split('-')[0]] = selection
-                    } else if (entry.name.split('-')[0] === 'key'){
+                    } else if (entry.name.split('-')[0] === 'key') {
                         // Check to make sure key isn't empty
-                        if(!entry.value){
+                        if (!entry.value) {
                             return false
                         }
                         form_json[question_key][entry.name.split('-')[0]] = entry.value
@@ -530,17 +512,17 @@
                         form_json[question_key][entry.name.split('-')[0]] = entry.value
                     }
                 }
-                if(form_json[question_key]['type'] === 'select' && form_json[question_key]['is_required'] === 'false'){
+                if (form_json[question_key]['type'] === 'select' && form_json[question_key]['is_required'] === 'false') {
                     form_json[question_key]['selection'].unshift('')
                 }
             }
-            if(form_json.length === 0){
+            if (form_json.length === 0) {
                 return null
             }
             return form_json
         }
 
-        self.filter_queues = function (filters) {
+        self.filter_queues = function(filters) {
             filters = filters || {}
             _.defaults(filters, {
                 search: $(self.refs.queue_search).val(),
@@ -554,7 +536,7 @@
         /*---------------------------------------------------------------------
          Events
         ---------------------------------------------------------------------*/
-        CODALAB.events.on('competition_loaded', function (competition) {
+        CODALAB.events.on('competition_loaded', function(competition) {
             self.is_editing_competition = true
             self.refs.title.value = competition.title
             self.markdown_editor.value(competition.description || '')
@@ -585,11 +567,11 @@
             $(self.refs.reward).val(competition.reward)
             $(self.refs.contact_email).val(competition.contact_email)
             $(self.refs.report).val(competition.report)
-            if(competition.fact_sheet !== null){
-                for(question in competition.fact_sheet){
+            if (competition.fact_sheet !== null) {
+                for (question in competition.fact_sheet) {
                     var q_json = competition.fact_sheet[question]
                     q_json.id = self.fact_sheet_questions.length
-                    if(q_json.type === "select"){
+                    if (q_json.type === "select") {
                         q_json.selection = q_json.selection.filter(s => s !== "")
                     }
                     self.fact_sheet_questions.push(q_json)
@@ -600,7 +582,7 @@
             // Put dropdown 'set selected' here so it doesn't trigger on_change:form_updated() before fact_sheet_questions is set
             $(self.refs.competition_type).dropdown('set selected', competition.competition_type)
             // Form change events
-            $(':input', self.root).not('[type="file"]').not('button').not('[readonly]').each(function (i, field) {
+            $(':input', self.root).not('[type="file"]').not('button').not('[readonly]').each(function(i, field) {
                 this.addEventListener('keyup', self.form_updated)
             })
         })
