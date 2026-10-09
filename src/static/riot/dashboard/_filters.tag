@@ -54,6 +54,10 @@
             </h5>
             <div class="content { opts.p.state.openCats[cat.name] !== false ? 'active' : '' }" data-catname="{ cat.name }" style="margin-top: 10px;">
                 <div class="filter-scroll-list">
+                                        <div class="ui checkbox filter-item">
+                        <input type="checkbox" checked="{ cat.noTagsChecked }" data-cat="{ cat.name }" data-tag="_no_tags_" onchange="{ toggleTagHandler }">
+                        <label><i>None</i> <span class="filter-count">({ cat.noTagsCount })</span></label>
+                    </div>
                     <div class="ui checkbox filter-item" each="{ tag in cat.tags }">
                         <input type="checkbox" checked="{ tag.checked }" data-cat="{ cat.name }" data-tag="{ tag.name }" onchange="{ toggleTagHandler }">
                         <label>{ tag.name } <span class="filter-count">({ tag.count })</span></label>

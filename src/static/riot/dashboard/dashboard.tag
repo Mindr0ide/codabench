@@ -404,7 +404,11 @@
                     var compTags = compTagsByCat[cat] || [];
                     var allMatch = true;
                     selected.forEach((it) => {
-                        if (compTags.indexOf(it) === -1) allMatch = false;
+                        if (it === '_no_tags_') {
+                            if (compTags.length > 0) allMatch = false;
+                        } else {
+                            if (compTags.indexOf(it) === -1) allMatch = false;
+                        }
                     });
                     if (!allMatch) return false;
                 }
@@ -416,7 +420,11 @@
                     var compTags = compTagsByCat[cat] || [];
                     var anyMatch = false;
                     selected.forEach((it) => {
-                        if (compTags.indexOf(it) !== -1) anyMatch = true;
+                        if (it === '_no_tags_') {
+                            if (compTags.length === 0) anyMatch = true;
+                        } else {
+                            if (compTags.indexOf(it) !== -1) anyMatch = true;
+                        }
                     });
                     if (anyMatch) return true;
                 }
@@ -475,7 +483,7 @@
             var totalTags = 0;
             var totalParticipants = 0;
             var totalSubmissions = 0;
-
+            self.noTagsCounts = {};
             self.filteredCompetitions.forEach((c) => {
                 orgs[c.organizer] = true;
                 totalParticipants += (c.participants_count || 0);
@@ -487,6 +495,12 @@
                         totalTags++;
                         self.categoryTagsCounts[cat][t] = (self.categoryTagsCounts[cat][t] || 0) + 1;
                     });
+                });
+
+                self.availableCategories.forEach((cat) => {
+                    if (!c.tagsByCategory[cat] || c.tagsByCategory[cat].length === 0) {
+                        self.noTagsCounts[cat] = (self.noTagsCounts[cat] || 0) + 1;
+                    }
                 });
             });
 
@@ -517,10 +531,13 @@
                     if (b.count !== a.count) return b.count - a.count;
                     return a.name.localeCompare(b.name);
                 });
+                var noTagsChecked = (self.state.selectedTags[cat] && self.state.selectedTags[cat]['_no_tags_']) ? true : false;
 
                 self.categoryFilters.push({
                     name: cat,
-                    tags: tagsArr
+                    tags: tagsArr,
+                    noTagsCount: self.noTagsCounts[cat] || 0,
+                    noTagsChecked: noTagsChecked
                 });
             });
 
