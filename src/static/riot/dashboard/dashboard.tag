@@ -6,7 +6,12 @@
                     <i class="chart pie icon"></i>
                     Competitions Dashboard
                 </h1>
-                <p class="dashboard-subtitle">Analyze trends, organizers, and domains across Codabench</p>
+                <p class="dashboard-subtitle">
+                    Analyze trends, organizers, and domains across Codabench
+                    <span if="{ lastUpdated }" style="margin-left: 8px; color: #888; font-size: 13px;">
+                        • Updated { pretty_date(lastUpdated) }
+                    </span>
+                </p>
             </div>
         </div>
 
@@ -75,6 +80,7 @@
         self.isLoggedIn = typeof CODALAB !== "undefined" && CODALAB.state && CODALAB.state.user && CODALAB.state.user.logged_in;
 
         self.loading = true;
+        self.lastUpdated = null;
         self.allCompetitions = [];
         self.filteredCompetitions = [];
 
@@ -117,6 +123,20 @@
         self.format_number = function (num) {
             if (num === null || num === undefined) return "0";
             return Number(num).toLocaleString();
+        };
+
+        self.pretty_date = function (date_string) {
+            if (!date_string) return '';
+            try {
+                if (typeof luxon !== 'undefined' && luxon.DateTime) {
+                    var dt = luxon.DateTime.fromISO(date_string);
+                    if (dt.isValid) return dt.toLocaleString(luxon.DateTime.DATETIME_MED);
+                }
+                var d = new Date(date_string);
+                return !isNaN(d.getTime()) ? d.toLocaleString() : date_string;
+            } catch (e) {
+                return date_string;
+            }
         };
 
         // CSV Export & RFC 4180 Escaping (prevents CSV formula injection)
@@ -227,43 +247,44 @@
 
         self.myOrganizingIds = new Set();
         self.myParticipatingIds = new Set();
+        self.hasFetchedOrganizing = false;
+        self.hasFetchedParticipating = false;
 
         self.on('mount', () => {
             self.syncTabFromHash();
             window.addEventListener('hashchange', self.syncTabFromHash);
             self.fetchData();
-            self.fetchUserCompetitionIds();
         });
 
         self.on('unmount', () => {
             window.removeEventListener('hashchange', self.syncTabFromHash);
         });
 
-        self.fetchUserCompetitionIds = () => {
-            if (!self.isLoggedIn) return;
-
-            const fetchAllIds = (initialUrl, onComplete) => {
-                var collectedIds = new Set();
-                const getPage = (url) => {
-                    CODALAB.api.request('GET', url)
-                        .done((response) => {
-                            var results = response.results || (Array.isArray(response) ? response : []);
-                            results.forEach((item) => {
-                                if (item && item.id) collectedIds.add(item.id);
-                            });
-                            if (response.next) {
-                                getPage(response.next);
-                            } else {
-                                onComplete(collectedIds);
-                            }
-                        })
-                        .fail(() => {
-                            onComplete(collectedIds);
+        const fetchAllIds = (initialUrl, onComplete) => {
+            var collectedIds = new Set();
+            const getPage = (url) => {
+                CODALAB.api.request('GET', url)
+                    .done((response) => {
+                        var results = response.results || (Array.isArray(response) ? response : []);
+                        results.forEach((item) => {
+                            if (item && item.id) collectedIds.add(item.id);
                         });
-                };
-                getPage(initialUrl);
+                        if (response.next) {
+                            getPage(response.next);
+                        } else {
+                            onComplete(collectedIds);
+                        }
+                    })
+                    .fail(() => {
+                        onComplete(collectedIds);
+                    });
             };
+            getPage(initialUrl);
+        };
 
+        self.fetchOrganizingIds = () => {
+            if (!self.isLoggedIn || self.hasFetchedOrganizing) return;
+            self.hasFetchedOrganizing = true;
             fetchAllIds(URLS.API + 'competitions/?mine=true&page_size=100', (ids) => {
                 self.myOrganizingIds = ids;
                 if (self.state.organizing) {
@@ -271,7 +292,11 @@
                     self.update();
                 }
             });
+        };
 
+        self.fetchParticipatingIds = () => {
+            if (!self.isLoggedIn || self.hasFetchedParticipating) return;
+            self.hasFetchedParticipating = true;
             fetchAllIds(URLS.API + 'competitions/?participating_in=true&page_size=100', (ids) => {
                 self.myParticipatingIds = ids;
                 if (self.state.participating_in) {
@@ -285,38 +310,33 @@
             self.loading = true;
             self.update();
 
-            var endpoint = (typeof URLS !== "undefined" && URLS.API) ? (URLS.API + "competitions/public/?page_size=5000") : "/api/competitions/public/?page_size=5000";
-            var allRawCompetitions = [];
+            var visParam = self.isAdmin ? 'all' : 'public';
+            var endpoint = (typeof URLS !== "undefined" && URLS.API)
+                ? (URLS.API + "dashboard/?visibility=" + visParam)
+                : ("/api/dashboard/?visibility=" + visParam);
 
-            const fetchPage = (url) => {
-                var req = (typeof CODALAB !== "undefined" && CODALAB.api && CODALAB.api.request)
-                    ? CODALAB.api.request("GET", url)
-                    : fetch(url).then((r) => r.json());
+            var req = (typeof CODALAB !== "undefined" && CODALAB.api && CODALAB.api.request)
+                ? CODALAB.api.request("GET", endpoint)
+                : fetch(endpoint).then((r) => r.json());
 
-                const handleSuccess = (response) => {
-                    var rawList = Array.isArray(response) ? response : (response.results || []);
-                    allRawCompetitions = allRawCompetitions.concat(rawList);
-                    if (response && response.next) {
-                        fetchPage(response.next);
-                    } else {
-                        self.allCompetitions = self.classifyCompetitions(allRawCompetitions);
-                        self.onDataLoaded();
-                    }
-                };
-
-                const handleError = () => {
-                    self.allCompetitions = self.classifyCompetitions(allRawCompetitions);
-                    self.onDataLoaded();
-                };
-
-                if (req && typeof req.done === "function") {
-                    req.done(handleSuccess).fail(handleError);
-                } else if (req && typeof req.then === "function") {
-                    req.then(handleSuccess).catch(handleError);
-                }
+            const handleSuccess = (response) => {
+                self.lastUpdated = response.last_updated || null;
+                var rawList = (response && response.competitions) ? response.competitions : [];
+                self.allCompetitions = self.classifyCompetitions(rawList);
+                self.onDataLoaded();
             };
 
-            fetchPage(endpoint);
+            const handleError = (error) => {
+                console.error("Failed to load dashboard statistics:", error);
+                self.allCompetitions = [];
+                self.onDataLoaded();
+            };
+
+            if (req && typeof req.done === "function") {
+                req.done(handleSuccess).fail(handleError);
+            } else if (req && typeof req.then === "function") {
+                req.then(handleSuccess).catch(handleError);
+            }
         };
 
         self.onDataLoaded = () => {
@@ -330,11 +350,11 @@
             self.globalCategoryTags = {};
 
             var mapped = list.map((item) => {
-                var compUrl = (typeof URLS !== "undefined" && URLS.COMPETITION_DETAIL) ? URLS.COMPETITION_DETAIL(item.id) : ("/competitions/" + item.id + "/");
+                var compUrl = item.url || ((typeof URLS !== "undefined" && URLS.COMPETITION_DETAIL) ? URLS.COMPETITION_DETAIL(item.id) : ("/competitions/" + item.id + "/"));
                 var comp = {
                     id: item.id,
                     title: item.title,
-                    organizer: item.created_by || item.owner_display_name || "Unknown",
+                    organizer: item.organizer || item.created_by || item.owner_display_name || "Unknown",
                     url: compUrl,
                     published: item.published,
                     competition_type: item.competition_type || "competition",
@@ -343,17 +363,15 @@
                     created_when: item.created_when,
                     reward: item.reward || "",
                     has_reward: Boolean(item.reward && String(item.reward).trim().length > 0),
-                    tagsByCategory: {}
+                    tagsByCategory: item.tagsByCategory || {}
                 };
 
-                if (item.tags && Array.isArray(item.tags)) {
-                    item.tags.forEach((tag) => {
-                        var cat = tag.category_name || tag.category || "Other";
-                        if (!comp.tagsByCategory[cat]) comp.tagsByCategory[cat] = [];
-                        comp.tagsByCategory[cat].push(tag.name);
-
+                if (item.tagsByCategory) {
+                    Object.keys(item.tagsByCategory).forEach((cat) => {
                         if (!self.globalCategoryTags[cat]) self.globalCategoryTags[cat] = {};
-                        self.globalCategoryTags[cat][tag.name] = true;
+                        (item.tagsByCategory[cat] || []).forEach((tagName) => {
+                            self.globalCategoryTags[cat][tagName] = true;
+                        });
                     });
                 }
                 return comp;
@@ -385,6 +403,13 @@
             self.state.startDate = filters.startDate || (filters.start_date ? new Date(filters.start_date) : null);
             self.state.endDate = filters.endDate || (filters.end_date ? new Date(filters.end_date) : null);
             self.state.selectedTags = filters.selected_tags_by_cat || {};
+
+            if (self.state.organizing && !self.hasFetchedOrganizing) {
+                self.fetchOrganizingIds();
+            }
+            if (self.state.participating_in && !self.hasFetchedParticipating) {
+                self.fetchParticipatingIds();
+            }
 
             self.applyFilters();
             self.update();
